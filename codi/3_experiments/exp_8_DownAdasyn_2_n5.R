@@ -16,7 +16,7 @@ mostres_bootsrap <- rsample::bootstraps(data_set_a_modelar, times = n_boot, stra
 
 # Creem recepta ----
 
-# Passos de preprocessament, downsampling (doblació majoritària) i adasyn (5 veïns)
+# Passos de preprocessament, downsampling (majoritària duplicada) i adasyn (5 veïns)
 
 eina_de_treball <- mostres_bootsrap %>%
   mutate(receta = map(data_training, 
