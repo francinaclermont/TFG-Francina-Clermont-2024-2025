@@ -5,10 +5,8 @@ file_output <- 'exp_11_DownSMOTE_2_n2'
 
 skimr::skim(data_set_a_modelar)
 
-# Crear 200 bootstraps estratificados a partir de las variables originales ----
-
-# Se crean tantas muestras bootstrap ESTRATIFICADAS SEGUN LA RESPUESTA 
-# requeridas como se pidan y se generan los datasets de training y test 
+# Creem 1000 bootstraps estratificats a partir de las variables originals ----
+# generació dels datasets de training y test 
 
 n_boot <- 1000
 
@@ -16,11 +14,9 @@ mostres_bootsrap <- rsample::bootstraps(data_set_a_modelar, times = n_boot, stra
   mutate(data_training = map(splits, ~ training(..1))) %>%
   mutate(data_testing = map(splits, ~ testing(..1)))
 
+# Creem recepta ----
 
-# Crear la receta ----
-
-# Aqui se dejan los pasos de preprocesamiento. En este caso, el step adasyn
-# pàra diferencia un experimento dejaremos que se haga con 2 vecinos.
+# Passos de preprocessament, downsampling (majoritària duplicada) i smote (2 veïns)
 
 eina_de_treball <- mostres_bootsrap %>%
   mutate(receta = map(data_training, 
@@ -31,10 +27,10 @@ eina_de_treball <- mostres_bootsrap %>%
   ))
 
 
-# Cocinando recetas ----
-# Aqui se actualizan los datasets de train y test 
+# Cuinat deceptes ----
+# Actualització de test i train 
 
-## Dataset de train ----
+## Dataset train ----
 safe_prep_bake_train <- safely(
   function(receta) { receta %>% prep() %>%bake(new_data = NULL)},
   otherwise="NO"
@@ -44,7 +40,7 @@ eina_de_treball <- eina_de_treball %>%
   mutate(data_training = map(receta, ~safe_prep_bake_train(..1) ))
 
 
-## Dataset de test  ----
+## Dataset test  ----
 safe_prep_bake_test <- safely(
   function(receta, dataset) {receta %>% prep() %>% bake(new_data = dataset) },
   otherwise="NO"
@@ -53,31 +49,29 @@ safe_prep_bake_test <- safely(
 eina_de_treball <- eina_de_treball %>%  
   mutate(data_testing = map2(receta,data_testing, ~safe_prep_bake_test(..1,..2) ) )
 
+# Filtrem models no convergits ----
+# Eliminem tots els datasets que no han convergit durant el procés de recepta.
 
-# Filtrado de no convergencias ----
-# Eliminamos todos aquellos datasets que por lo que sea no hayan convergido en el proceso de la receta
-
-## Filtrado en train ----
+## Filtrem train ----
 eina_de_treball <- eina_de_treball %>%
   filter( map_lgl(data_training, ~ is.null(.x$error)==TRUE)) %>%
   mutate(data_training= map(data_training, "result")) 
 
-## Filtrado en test ----
+## Filtrem test ----
 eina_de_treball <- eina_de_treball %>%
   filter(map_lgl(data_testing, ~ is.null(.x$error)==TRUE)) %>%
   mutate(data_testing= map(data_testing, "result")) 
 
 
-
-# Ajuste del modelo-----
-# un sencillo modelo de regresiuon lineal  usando como formula todas las variables disponibles
+# Ajustem model-----
+# model de regressió lineal a partir de model complet
 
 eina_de_treball <- eina_de_treball %>% 
   mutate( modelo_ajustado = map( data_training, ~ glm(formula = 'CMVD_rev ~ .', data= ..1, family = 'binomial' )))
 
-# Predicciones ----
+# Prediccions ----
 
-## Creación de predicciones training ----
+## Creem prediccions training ----
 eina_de_treball <- eina_de_treball %>%
   mutate(
     '.pred_train' = pmap(
@@ -99,7 +93,7 @@ eina_de_treball <- eina_de_treball %>%
     )
   )
 
-## Creación de predicciones testing ----
+## Creem prediccions testing ----
 eina_de_treball <- eina_de_treball %>%
   mutate(
     '.pred_test' = pmap(
@@ -124,9 +118,9 @@ eina_de_treball <- eina_de_treball %>%
 eina_de_treball
 
 
-# Model Metrics ----
+# Mètriques dels models ----
 
-# Metrics definitions -----
+# Funció mètriques -----
 Metricas_evaluacion <- metric_set(
   yardstick::accuracy,
   yardstick::sensitivity,
@@ -139,7 +133,7 @@ Metricas_evaluacion <- metric_set(
   yardstick::detection_prevalence
 )  
 
-# Metrics train -----
+# Mètriques train -----
 
 eina_de_treball <- eina_de_treball %>% 
   mutate('.metricas_train'= map( .pred_train, 
@@ -149,7 +143,7 @@ eina_de_treball <- eina_de_treball %>%
     ~ ..1 %>% 
       bind_rows(yardstick::roc_auc(..2,  .pred_1, truth = CMVD_rev, estimator= 'binary'))))
 
-# Metrics test -----
+# Mètriques test -----
 
 eina_de_treball <- eina_de_treball %>% 
   mutate('.metricas_test'= map(
@@ -164,9 +158,7 @@ eina_de_treball <- eina_de_treball %>%
 
 eina_de_treball
 
-# Metricas 100 modelos ----
-
-# Metricas training ----
+# Guardem mètriques training ----
 
 eina_de_treball$.metricas_train %>% 
   bind_rows() %>% 
@@ -180,7 +172,7 @@ eina_de_treball$.metricas_train %>%
   select(Experiment,n_models, Avg_number_obs, roc_auc, sensitivity, spec, accuracy, everything() ) %>% 
   write_rds(., file = paste0('programacio/outputs/Experiments/',file_output,'/Taula_Metriques_train.rds' ))
 
-# Metricas test ----
+# Guardem mètriques testing ----
 
 eina_de_treball$.metricas_test %>% 
   bind_rows() %>% 
@@ -194,9 +186,7 @@ eina_de_treball$.metricas_test %>%
   select(Experiment,n_models, Avg_number_obs, roc_auc, sensitivity, spec, accuracy, everything() ) %>% 
   write_rds(., file = paste0('programacio/outputs/Experiments/',file_output,'/Taula_Metriques_test.rds' ))
 
-# report experimento ----
-
-# coeficientes del modelo experimental  ----
+# guardem els coeficients del model  ----
 
 eina_de_treball$modelo_ajustado %>% 
   map(tidy) %>%  
@@ -206,7 +196,7 @@ eina_de_treball$modelo_ajustado %>%
   write_rds(., file = paste0('programacio/outputs/Experiments/',file_output,'/Tibble_Coefs_models.rds' ))
 
 
-# metricas del experimento ----
+# l'afegim al gràfic ----
 
 eina_de_treball$.metricas_test %>% 
   bind_rows(.id = 'modelo') %>% 
