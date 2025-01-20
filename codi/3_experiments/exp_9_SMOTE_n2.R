@@ -17,7 +17,7 @@ mostres_bootsrap <- rsample::bootstraps(data_set_a_modelar, times = n_boot, stra
 
 # Creem recepta ----
 
-# Passos de preprocessament, només fem conversió a dummy
+# Passos de preprocessament, smote amb 2 veïns
 
 eina_de_treball <- mostres_bootsrap %>%
   mutate(receta = map(data_training, 
