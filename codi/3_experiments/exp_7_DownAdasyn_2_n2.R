@@ -70,7 +70,7 @@ eina_de_treball <- eina_de_treball %>%
 eina_de_treball <- eina_de_treball %>% 
   mutate( modelo_ajustado = map( data_training, ~ glm(formula = 'CMVD_rev ~ .', data= ..1, family = 'binomial' )))
 
-# Prediccion¡s ----
+# Prediccions ----
 
 ## Creem prediccions training ----
 eina_de_treball <- eina_de_treball %>%
@@ -187,7 +187,6 @@ eina_de_treball$.metricas_test %>%
   write_rds(., file = paste0('programacio/outputs/Experiments/',file_output,'/Taula_Metriques_test.rds' ))
 
 # guardem els coeficients del model  ----
-
 
 eina_de_treball$modelo_ajustado %>% 
   map(tidy) %>%  
