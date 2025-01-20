@@ -1,0 +1,37 @@
+source("programacio/codi/0_importacio/importacio.R")
+library(grDevices)
+
+  # creació de la table one
+taula1_strat<-tableone::CreateTableOne(
+  vars = data_original_fullnames 
+  %>% select(-c(PatNo, `CMV organic disease after review time (weeks)`, SidaTime, PatCode, `IRIS (weeks)`, CmvEventAnyTm, OnStudyTime_, `max FollowUp (weeks)`, ResistenceTime, `Time On Study (weeks)`))
+  %>%  names(),
+  data = data_original_fullnames,
+  strata = 'CMV organic disease after review',
+  addOverall = T
+) %>% 
+  print(addOverall = T, smd=T,   includeNA = T )%>% 
+  as_tibble(rownames= 'Variables') 
+#print(diccionari_noms, n=200)
+
+# gràfic de freqüències de la variable resposta.
+grafic_frequencies_cmvd_rev<-
+  ggplot(
+    data_original_amb_classes_retallada, 
+    aes(x=CMVD_rev))+
+  geom_bar(
+    fill="skyblue",
+    color="black")+
+  geom_text(
+    stat = "count", 
+    aes(label = after_stat(count)), 
+    vjust = -0.5)+
+  labs(
+    title="Freqüències de CMVD_rev", 
+    x="CMVD_rev", 
+    y="Freqüència")+
+  theme_minimal()
+
+#png(file="programacio/outputs/descriptiva/grafic_frequencies_cmvd_rev.png")
+#grafic_frequencies_cmvd_rev
+#dev.off()
